@@ -1,13 +1,32 @@
 import torch
-import random
-import numpy as np
 import MinkowskiEngine.MinkowskiOps as me
-import MinkowskiEngine as MEB
+import MinkowskiEngine as ME
 from MinkowskiEngine import MinkowskiReLU
 
 from mask3d.models.resnet import ResNetBase, get_norm
 from mask3d.models.modules.common import ConvType, NormType, conv, conv_tr
 from mask3d.models.modules.resnet_block import BasicBlock, Bottleneck
+
+def array2vector(array, step):
+    array, step = array.long(), step.long()
+    vector = sum([array[:, i] * (step**i) for i in range(1, array.shape[-1])]) + (
+        array[:, 0] * step ** array.shape[-1]
+    )
+    return vector
+
+
+def sort_spare_tensor(sparse_tensor):
+    # https://github.com/NVIDIA/MinkowskiEngine/issues/554
+    indices_sort = torch.argsort(array2vector(sparse_tensor.C, sparse_tensor.C.max() + 1))
+
+    sparse_tensor_sort = ME.SparseTensor(
+        features=sparse_tensor.F[indices_sort],
+        coordinates=sparse_tensor.C[indices_sort],
+        tensor_stride=sparse_tensor.tensor_stride[0],
+        device=sparse_tensor.device,
+    )
+    return sparse_tensor_sort # , indices_sort
+
 
 class Res16UNetBase(ResNetBase):
     BLOCK = None
@@ -302,11 +321,11 @@ class Res16UNetBase(ResNetBase):
         out = me.cat(out, out_p1)
         out = self.block8(out)
         feature_maps.append(out)
-
+        # import pdb; pdb.set_trace()
         if not self.out_fpn:
-            return out
+            return sort_spare_tensor(out) # out
         else:
-            return out, feature_maps
+            return sort_spare_tensor(out), [sort_spare_tensor(m) for m in feature_maps]  #out, feature_maps
 
 
 class Res16UNet14(Res16UNetBase):

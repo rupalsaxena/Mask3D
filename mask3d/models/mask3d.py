@@ -8,6 +8,7 @@ from torch.nn import functional as F
 from mask3d.models.modules.common import conv
 from mask3d.models.position_embedding import PositionEmbeddingCoordsSine
 from mask3d.models.modules.helpers_3detr import GenericMLP
+from mask3d.models.res16unet import sort_spare_tensor
 from torch_scatter import scatter_mean, scatter_max, scatter_min
 from torch.cuda.amp import autocast
 
@@ -236,8 +237,6 @@ class Mask3D(nn.Module):
         self, x, point2segment=None, raw_coordinates=None, is_eval=False
     ):
         pcd_features, aux = self.backbone(x)
-        # print(aux) # yeh bhi alag he
-        # todo: check if backbone is the problem
 
         batch_size = len(x.decomposed_coordinates)
 
@@ -251,7 +250,7 @@ class Mask3D(nn.Module):
 
             coords = [coordinates]
             for _ in reversed(range(len(aux) - 1)):
-                coords.append(self.pooling(coords[-1]))
+                coords.append(sort_spare_tensor(self.pooling(coords[-1])))
 
             coords.reverse()
 
@@ -579,7 +578,7 @@ class Mask3D(nn.Module):
         if ret_attn_mask:
             attn_mask = outputs_mask
             for _ in range(num_pooling_steps):
-                attn_mask = self.pooling(attn_mask.float())
+                attn_mask = sort_spare_tensor(self.pooling(attn_mask.float()))
 
             attn_mask = me.SparseTensor(
                 features=(attn_mask.F.detach().sigmoid() < 0.5),
