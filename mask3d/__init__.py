@@ -1,5 +1,6 @@
 import hydra
 import torch
+import numpy as np
 
 from mask3d.models.mask3d import Mask3D
 from mask3d.utils.utils import (
@@ -27,9 +28,21 @@ import albumentations as A
 import MinkowskiEngine as ME
 import numpy as np
 import open3d as o3d
+import random
 
 # imports for output
-from datasets.scannet200.scannet200_constants import (VALID_CLASS_IDS_20, VALID_CLASS_IDS_200, SCANNET_COLOR_MAP_20, SCANNET_COLOR_MAP_200)
+# from datasets.scannet200.scannet200_constants import (VALID_CLASS_IDS_20, VALID_CLASS_IDS_200, SCANNET_COLOR_MAP_20, SCANNET_COLOR_MAP_200)
+from mask3d.datasets.scannet200.scannet200_constants import (VALID_CLASS_IDS_20, VALID_CLASS_IDS_200, SCANNET_COLOR_MAP_20, SCANNET_COLOR_MAP_200)
+
+def set_seed(seed):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+    # Ensure reproducibility in other potential randomness sources
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
 def get_model(checkpoint_path=None):
 
@@ -40,7 +53,7 @@ def get_model(checkpoint_path=None):
         cfg = compose(config_name="config_base_instance_segmentation.yaml")
 
     cfg.general.checkpoint = checkpoint_path
-
+    # seed_everything(cfg.general.seed)
     # would be nicd to avoid this hardcoding below
     dataset_name = checkpoint_path.split('/')[-1].split('_')[0]
     if dataset_name == 'scannet200':
@@ -182,9 +195,7 @@ def map_output_to_pointcloud(mesh,
     mesh_labelled.triangles = mesh.triangles
 
     labels_mapped = np.zeros((len(mesh.vertices), 1))
-
-    for i, (l, c, m) in enumerate(
-        sorted(zip(labels, confidences, masks_binary), reverse=False)):
+    for i, (l, c, m) in enumerate(sorted(zip(labels, confidences, masks_binary), reverse=False)):
         
         if label_space == 'scannet200':
             label_offset = 2
@@ -198,7 +209,6 @@ def map_output_to_pointcloud(mesh,
     return labels_mapped
 
 def save_colorized_mesh(mesh, labels_mapped, output_file, colormap='scannet'):
-    
     # colorize mesh
     colors = np.zeros((len(mesh.vertices), 3))
     for li in np.unique(labels_mapped):
@@ -211,8 +221,11 @@ def save_colorized_mesh(mesh, labels_mapped, output_file, colormap='scannet'):
             raise ValueError('Unknown colormap - not supported')
     
     colors = colors / 255.
-    mesh.vertex_colors = o3d.utility.Vector3dVector(colors)
-    o3d.io.write_triangle_mesh(output_file, mesh)
+    # mesh.vertex_colors = o3d.utility.Vector3dVector(colors)
+    point_cloud = o3d.geometry.PointCloud()
+    point_cloud.points = o3d.utility.Vector3dVector(np.array(mesh.vertices))
+    point_cloud.colors = o3d.utility.Vector3dVector(colors)
+    o3d.io.write_point_cloud(output_file, point_cloud)
 
 if __name__ == '__main__':
     

@@ -1,4 +1,5 @@
 import sys
+import torch
 
 if sys.version_info[:2] >= (3, 8):
     from collections.abc import Sequence
@@ -9,6 +10,65 @@ from enum import Enum
 
 import torch.nn as nn
 import MinkowskiEngine as ME
+
+
+class SortedMinkowskiConvolution(ME.MinkowskiConvolution):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def forward(self, input):
+        # Sort the coordinates
+        weights = torch.tensor([1e12, 1e8, 1e4, 1], device=input.device) 
+        sortable_vals = (input.C * weights).sum(dim=1)
+        sorted_coords_indices = sortable_vals.argsort()
+
+        input = ME.SparseTensor(
+            features=input.F[sorted_coords_indices],
+            coordinates=input.C[sorted_coords_indices],
+            tensor_stride=input.tensor_stride,
+            device=input.device
+        )
+        output = super().forward(input)
+        return output
+
+class SortedMinkowskiConvolutionTranspose(ME.MinkowskiConvolutionTranspose):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def forward(self, input):
+        # Sort the coordinates
+        weights = torch.tensor([1e12, 1e8, 1e4, 1], device=input.device) 
+        sortable_vals = (input.C * weights).sum(dim=1)
+        sorted_coords_indices = sortable_vals.argsort()
+
+        input = ME.SparseTensor(
+            features=input.F[sorted_coords_indices],
+            coordinates=input.C[sorted_coords_indices],
+            tensor_stride=input.tensor_stride,
+            device=input.device
+        )
+        output = super().forward(input)
+        return output
+
+class SortedMinkowskiBatchNorm(ME.MinkowskiBatchNorm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def forward(self, input):
+        # import pdb; pdb.set_trace()
+        # Sort the coordinates
+        weights = torch.tensor([1e12, 1e8, 1e4, 1], device=input.device) 
+        sortable_vals = (input.C * weights).sum(dim=1)
+        sorted_coords_indices = sortable_vals.argsort()
+
+        input = ME.SparseTensor(
+            features=input.F[sorted_coords_indices],
+            coordinates=input.C[sorted_coords_indices],
+            tensor_stride=input.tensor_stride,
+            device=input.device
+        )
+        output = super().forward(input)
+        return output
 
 
 class NormType(Enum):

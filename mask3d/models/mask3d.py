@@ -236,6 +236,8 @@ class Mask3D(nn.Module):
         self, x, point2segment=None, raw_coordinates=None, is_eval=False
     ):
         pcd_features, aux = self.backbone(x)
+        # print(aux) # yeh bhi alag he
+        # todo: check if backbone is the problem
 
         batch_size = len(x.decomposed_coordinates)
 

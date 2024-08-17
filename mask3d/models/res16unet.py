@@ -1,10 +1,13 @@
+import torch
+import random
+import numpy as np
 import MinkowskiEngine.MinkowskiOps as me
+import MinkowskiEngine as MEB
 from MinkowskiEngine import MinkowskiReLU
 
 from mask3d.models.resnet import ResNetBase, get_norm
 from mask3d.models.modules.common import ConvType, NormType, conv, conv_tr
 from mask3d.models.modules.resnet_block import BasicBlock, Bottleneck
-
 
 class Res16UNetBase(ResNetBase):
     BLOCK = None
@@ -265,7 +268,6 @@ class Res16UNetBase(ResNetBase):
         out = self.bn4(out)
         out = self.relu(out)
         out = self.block4(out)
-
         feature_maps.append(out)
 
         # pixel_dist=8
@@ -275,37 +277,30 @@ class Res16UNetBase(ResNetBase):
 
         out = me.cat(out, out_b3p8)
         out = self.block5(out)
-
         feature_maps.append(out)
 
         # pixel_dist=4
         out = self.convtr5p8s2(out)
         out = self.bntr5(out)
         out = self.relu(out)
-
         out = me.cat(out, out_b2p4)
         out = self.block6(out)
-
         feature_maps.append(out)
 
         # pixel_dist=2
         out = self.convtr6p4s2(out)
         out = self.bntr6(out)
         out = self.relu(out)
-
         out = me.cat(out, out_b1p2)
         out = self.block7(out)
-
         feature_maps.append(out)
 
         # pixel_dist=1
         out = self.convtr7p2s2(out)
         out = self.bntr7(out)
         out = self.relu(out)
-
         out = me.cat(out, out_p1)
         out = self.block8(out)
-
         feature_maps.append(out)
 
         if not self.out_fpn:
