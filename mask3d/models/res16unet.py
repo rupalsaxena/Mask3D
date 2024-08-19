@@ -25,7 +25,7 @@ def sort_spare_tensor(sparse_tensor):
         tensor_stride=sparse_tensor.tensor_stride[0],
         device=sparse_tensor.device,
     )
-    return sparse_tensor_sort # , indices_sort
+    return sparse_tensor_sort , indices_sort
 
 
 class Res16UNetBase(ResNetBase):
@@ -325,7 +325,7 @@ class Res16UNetBase(ResNetBase):
         if not self.out_fpn:
             return sort_spare_tensor(out) # out
         else:
-            return sort_spare_tensor(out), [sort_spare_tensor(m) for m in feature_maps]  #out, feature_maps
+            return sort_spare_tensor(out), [sort_spare_tensor(m) for m in feature_maps]  # out, feature_maps
 
 
 class Res16UNet14(Res16UNetBase):

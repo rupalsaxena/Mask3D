@@ -168,6 +168,9 @@ class Mask3D(nn.Module):
         self.ffn_attention = nn.ModuleList()
         self.lin_squeeze = nn.ModuleList()
 
+        # changed here
+        self.coord_sort_maps = None
+
         num_shared = self.num_decoders if not self.shared_decoder else 1
 
         for _ in range(num_shared):
@@ -237,20 +240,34 @@ class Mask3D(nn.Module):
         self, x, point2segment=None, raw_coordinates=None, is_eval=False
     ):
         pcd_features, aux = self.backbone(x)
+        # added here
+        if type(pcd_features) == tuple:
+            self.coord_sort_maps = [a[1] for a in aux]
+            aux = [a[0] for a in aux]
+            pcd_features = pcd_features[0]
 
         batch_size = len(x.decomposed_coordinates)
 
         with torch.no_grad():
+            # import pdb; pdb.set_trace()
+            # changed here
             coordinates = me.SparseTensor(
-                features=raw_coordinates,
-                coordinate_manager=aux[-1].coordinate_manager,
-                coordinate_map_key=aux[-1].coordinate_map_key,
+                features=raw_coordinates[self.coord_sort_maps[-1]],
+                coordinates=aux[-1].coordinates[self.coord_sort_maps[-1]],
                 device=aux[-1].device,
             )
+            # coordinates = me.SparseTensor(
+            #     features=raw_coordinates,
+            #     coordinate_manager=aux[-1].coordinate_manager,
+            #     coordinate_map_key=aux[-1].coordinate_map_key,
+            #     device=aux[-1].device,
+            # )
 
             coords = [coordinates]
             for _ in reversed(range(len(aux) - 1)):
-                coords.append(sort_spare_tensor(self.pooling(coords[-1])))
+                coords.append(sort_spare_tensor(self.pooling(coords[-1]))[0])
+                # changed here
+                # coords.append(self.pooling(coords[-1]))
 
             coords.reverse()
 
@@ -529,6 +546,17 @@ class Mask3D(nn.Module):
         predictions_class.append(output_class)
         predictions_mask.append(outputs_mask)
 
+        # added here
+        for i in range(len(predictions_mask)):
+            splits = [len(p) for p in predictions_mask[i]]
+            out_idxs = self.coord_sort_maps[-1].split(splits)
+            for j in range(len(predictions_mask[i])):
+                out_mask = out_idxs[j] - out_idxs[j].min()
+                preds = torch.zeros_like(predictions_mask[i][j])
+                preds[out_mask] = predictions_mask[i][j]
+                predictions_mask[i][j] = preds
+
+
         return {
             "pred_logits": predictions_class[-1],
             "pred_masks": predictions_mask[-1],
@@ -578,7 +606,9 @@ class Mask3D(nn.Module):
         if ret_attn_mask:
             attn_mask = outputs_mask
             for _ in range(num_pooling_steps):
-                attn_mask = sort_spare_tensor(self.pooling(attn_mask.float()))
+                attn_mask = sort_spare_tensor(self.pooling(attn_mask.float()))[0]
+                # changed here
+                # attn_mask = self.pooling(attn_mask.float())
 
             attn_mask = me.SparseTensor(
                 features=(attn_mask.F.detach().sigmoid() < 0.5),
