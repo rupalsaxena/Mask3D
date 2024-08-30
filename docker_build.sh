@@ -1,1 +1,1 @@
-docker build -t mask3d_docker .
+sudo docker --debug build -t mask3d_docker .

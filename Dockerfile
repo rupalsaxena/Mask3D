@@ -33,8 +33,8 @@ RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86
     /opt/conda/bin/conda clean -ya
 
 # Set path to conda
-ENV PATH /opt/conda/bin:$PATH
-
+ENV PATH=/opt/conda/bin:$PATH
+RUN pip install --upgrade "pip<24.1"
 COPY environment.yml .
 COPY requirements.txt .
 RUN conda env create -f environment.yml
