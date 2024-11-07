@@ -42,8 +42,18 @@ RUN pip install -r requirements.txt
 RUN pip3 install --no-build-isolation pycocotools
 RUN pip3 install --no-build-isolation pyyaml
 
-# Copy the project files into the container
-COPY . /workspace
+# # Copy the project files into the container
+# COPY . /workspace
+
+# Set the working directory
+WORKDIR /workspace
+
+# Copy all necessary folders to /workspace in the container
+COPY . .
+
+# Change directory to install projectaria_tools
+WORKDIR /workspace/projectaria_tools
+RUN python3 -m pip install projectaria-tools'[all]'
 
 # set working dir
 WORKDIR /workspace
@@ -78,7 +88,8 @@ RUN pip3 install pytorch-lightning==1.7.2
 RUN pip3 install open3d
 RUN pip3 install hydra-core
 RUN pip3 install torch_geometric
-
+RUN pip3 install openai==0.28
+RUN pip3 install git+https://github.com/openai/CLIP.git
 # # Install the Mask3D package
 RUN pip3 install .
 
