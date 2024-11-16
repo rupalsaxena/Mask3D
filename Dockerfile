@@ -42,18 +42,11 @@ RUN pip install -r requirements.txt
 RUN pip3 install --no-build-isolation pycocotools
 RUN pip3 install --no-build-isolation pyyaml
 
-# # Copy the project files into the container
-# COPY . /workspace
-
 # Set the working directory
 WORKDIR /workspace
 
 # Copy all necessary folders to /workspace in the container
 COPY . .
-
-# Change directory to install projectaria_tools
-WORKDIR /workspace/projectaria_tools
-RUN python3 -m pip install projectaria-tools'[all]'
 
 # set working dir
 WORKDIR /workspace
@@ -69,22 +62,25 @@ RUN git clone "https://github.com/NVIDIA/MinkowskiEngine" && \
     git checkout 02fc608bea4c0549b0a7b00ca1bf15dee4a0b228 && \
     python setup.py install --force_cuda --blas=openblas
 
-
 WORKDIR /workspace/third_party
-# Clone and build ScanNet Segmentator
+# # Clone and build ScanNet Segmentator
 RUN git clone https://github.com/ScanNet/ScanNet.git && \
     cd ScanNet/Segmentator && \
     git checkout 3e5726500896748521a6ceb81271b0f5b2c0e7d2 && \
     make
 
-# # # Install pointnet2
+# Install pointnet2
 WORKDIR /workspace/third_party/pointnet2
 RUN python setup.py install
 
-# # Go back to the root directory and install pytorch-lightning
+# Change directory to install projectaria_tools
+WORKDIR /workspace/projectaria_tools
+RUN python3 -m pip install projectaria-tools'[all]'
+
+# Go back to the root directory and install pytorch-lightning
 WORKDIR /workspace
 RUN pip3 install fvcore
-RUN pip3 install pytorch-lightning==1.7.2
+# RUN pip3 install pytorch-lightning==1.7.2 # NOT REQUIRED
 RUN pip3 install open3d
 RUN pip3 install hydra-core
 RUN pip3 install torch_geometric
