@@ -1,4 +1,5 @@
 import sys
+import torch
 
 if sys.version_info[:2] >= (3, 8):
     from collections.abc import Sequence
@@ -9,7 +10,6 @@ from enum import Enum
 
 import torch.nn as nn
 import MinkowskiEngine as ME
-
 
 class NormType(Enum):
     BATCH_NORM = 0

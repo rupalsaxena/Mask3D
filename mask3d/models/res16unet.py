@@ -1,9 +1,31 @@
+import torch
 import MinkowskiEngine.MinkowskiOps as me
+import MinkowskiEngine as ME
 from MinkowskiEngine import MinkowskiReLU
 
 from mask3d.models.resnet import ResNetBase, get_norm
 from mask3d.models.modules.common import ConvType, NormType, conv, conv_tr
 from mask3d.models.modules.resnet_block import BasicBlock, Bottleneck
+
+def array2vector(array, step):
+    array, step = array.long(), step.long()
+    vector = sum([array[:, i] * (step**i) for i in range(1, array.shape[-1])]) + (
+        array[:, 0] * step ** array.shape[-1]
+    )
+    return vector
+
+
+def sort_spare_tensor(sparse_tensor):
+    # https://github.com/NVIDIA/MinkowskiEngine/issues/554
+    indices_sort = torch.argsort(array2vector(sparse_tensor.C, sparse_tensor.C.max() + 1))
+
+    sparse_tensor_sort = ME.SparseTensor(
+        features=sparse_tensor.F[indices_sort],
+        coordinates=sparse_tensor.C[indices_sort],
+        tensor_stride=sparse_tensor.tensor_stride[0],
+        device=sparse_tensor.device,
+    )
+    return sparse_tensor_sort , indices_sort
 
 
 class Res16UNetBase(ResNetBase):
@@ -265,7 +287,6 @@ class Res16UNetBase(ResNetBase):
         out = self.bn4(out)
         out = self.relu(out)
         out = self.block4(out)
-
         feature_maps.append(out)
 
         # pixel_dist=8
@@ -275,43 +296,36 @@ class Res16UNetBase(ResNetBase):
 
         out = me.cat(out, out_b3p8)
         out = self.block5(out)
-
         feature_maps.append(out)
 
         # pixel_dist=4
         out = self.convtr5p8s2(out)
         out = self.bntr5(out)
         out = self.relu(out)
-
         out = me.cat(out, out_b2p4)
         out = self.block6(out)
-
         feature_maps.append(out)
 
         # pixel_dist=2
         out = self.convtr6p4s2(out)
         out = self.bntr6(out)
         out = self.relu(out)
-
         out = me.cat(out, out_b1p2)
         out = self.block7(out)
-
         feature_maps.append(out)
 
         # pixel_dist=1
         out = self.convtr7p2s2(out)
         out = self.bntr7(out)
         out = self.relu(out)
-
         out = me.cat(out, out_p1)
         out = self.block8(out)
-
         feature_maps.append(out)
-
+        # import pdb; pdb.set_trace()
         if not self.out_fpn:
-            return out
+            return sort_spare_tensor(out) # out
         else:
-            return out, feature_maps
+            return sort_spare_tensor(out), [sort_spare_tensor(m) for m in feature_maps]  # out, feature_maps
 
 
 class Res16UNet14(Res16UNetBase):
